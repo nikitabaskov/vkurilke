@@ -32,6 +32,12 @@ docker compose --profile https up -d --build
 
 **Подробный гайд со всеми шагами, бэкапами и разбором типичных ошибок: [docs/DEPLOY.md](docs/DEPLOY.md).**
 
+## Развертывание на Bothost
+
+Используйте корневой `Dockerfile`, включите HTTPS-домен и порт `8080`, задайте `BOT_TOKEN`, `BASE_URL`, `ADMIN_IDS` и `DB_PATH=/app/data/vkurilke.db` в панели. Для Mini App нужен тариф с веб-доменом и постоянным хранилищем.
+
+**Пошаговый гайд: [docs/BOTHOST.md](docs/BOTHOST.md).**
+
 ## Локальная разработка
 
 Нужны Go 1.25+ и Node.js 22.12+.
@@ -50,6 +56,7 @@ make run     # собрать и запустить
 | Файл | О чем |
 | --- | --- |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Развертывание на VPS, обновление, бэкапы, эксплуатация |
+| [docs/BOTHOST.md](docs/BOTHOST.md) | Развертывание на Bothost, домен Mini App, SQLite и диагностика |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Локальная среда, правила PR, стиль кода |
 | [docs/API.md](docs/API.md) | HTTP API, авторизация, команды бота |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Согласованная продуктовая логика — источник правды о поведении |
