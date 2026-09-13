@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS session_messages (
  user_id INTEGER NOT NULL REFERENCES users(id), message_id INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(session_id,user_id)
 );
+CREATE TABLE IF NOT EXISTS session_visits (
+ episode_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+ user_id INTEGER NOT NULL REFERENCES users(id), started_at INTEGER NOT NULL, ended_at INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS visits_by_session ON session_visits(session_id);
 CREATE TABLE IF NOT EXISTS outbox (
  id INTEGER PRIMARY KEY AUTOINCREMENT, dedupe_key TEXT NOT NULL UNIQUE,
  kind TEXT NOT NULL, group_id TEXT NOT NULL, session_id TEXT NOT NULL DEFAULT '',

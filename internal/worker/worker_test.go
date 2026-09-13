@@ -64,7 +64,8 @@ func TestDeliveryRetriesAndThenEditsExistingCard(t *testing.T) {
 	now = now.Add(2 * time.Second)
 	check(w.DeliverOne(ctx))
 	check(w.DeliverOne(ctx))
-	if len(paths) != 4 || !strings.HasSuffix(paths[3], "editMessageText") {
+	// The joiner's card is edited; the founder gets a first card now that someone joined.
+	if len(paths) != 4 || strings.Count(strings.Join(paths[2:], " "), "editMessageText") != 1 {
 		t.Fatalf("card was duplicated instead of edited: %v", paths)
 	}
 	j, err = s.NextJob(ctx)

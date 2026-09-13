@@ -158,13 +158,24 @@ func TestSessionSurvivesFounderLeavingAndPendingArrival(t *testing.T) {
 	if f.session(t) != session {
 		t.Fatal("arrival created another session")
 	}
-	j := f.job(t, "arrival", 1)
-	d, err := f.s.Prepare(ctx, j)
+	card := f.job(t, "card", 1)
+	d, err := f.s.Prepare(ctx, card)
 	must(t, err)
-	if d.Skip || d.ActorName != "Аня" {
-		t.Fatal("arrival notification missing")
+	if d.Skip || len(d.Visits) != 2 || d.Visits[0].Seconds != 60 || d.Visits[0].Present || d.Visits[1].Name != "Аня" || !d.Visits[1].Present {
+		t.Fatalf("founder card lacks visits: %+v", d)
 	}
+	must(t, f.s.CompleteJob(ctx, card, 500, true))
 	must(t, f.s.ChangeStatus(ctx, 2, f.group.ID, "idle", 0))
+	d, err = f.s.Prepare(ctx, f.job(t, "card", 1))
+	must(t, err)
+	if !d.Closed || d.Duration != 337 || len(d.Visits) != 2 || d.Visits[1].Seconds != 37 || d.Visits[1].Present {
+		t.Fatalf("closed card lacks summary: %+v", d)
+	}
+	var separate int
+	must(t, f.s.db.QueryRow(`SELECT COUNT(*) FROM outbox WHERE kind IN ('arrival','departure')`).Scan(&separate))
+	if separate != 0 {
+		t.Fatal("arrivals and departures spammed separate messages")
+	}
 	if err = f.s.JoinSession(ctx, 3, session); !errors.Is(err, ErrStale) {
 		t.Fatalf("stale callback: %v", err)
 	}
@@ -273,13 +284,11 @@ func TestOutboxRevisionAndPreferenceChecks(t *testing.T) {
 	if d.MessageID != 300 {
 		t.Fatal("retry would create another card")
 	}
-	must(t, f.s.ChangeStatus(ctx, 2, f.group.ID, "smoking", 0))
-	arrival := f.job(t, "arrival", 3)
-	must(t, f.s.SetPreferences(ctx, 3, Preferences{}))
-	d, err = f.s.Prepare(ctx, arrival)
+	must(t, f.s.SetPreferences(ctx, 1, Preferences{}))
+	d, err = f.s.Prepare(ctx, f.job(t, "card", 1))
 	must(t, err)
 	if !d.Skip {
-		t.Fatal("queued arrival ignored changed preferences")
+		t.Fatal("unsent card ignored changed preferences")
 	}
 	must(t, f.s.ManageMember(ctx, 1, f.group.ID, 3, "remove"))
 	d, err = f.s.Prepare(ctx, latest)

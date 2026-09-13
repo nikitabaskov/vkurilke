@@ -20,42 +20,22 @@ type Delivery struct {
 	MessageID             int64
 	GroupName, ActorName  string
 	Members               []Member
+	Visits                []Visit
+	Duration              int64
+}
+
+// Visit is one person's total smoking time within a session.
+type Visit struct {
+	UserID  int64
+	Name    string
+	Seconds int64
+	Present bool
 }
 
 func enqueue(tx *sql.Tx, j Job) error {
 	_, err := tx.Exec(`INSERT INTO outbox(dedupe_key,kind,group_id,session_id,user_id,actor_id,token) VALUES(?,?,?,?,?,?,?)
 	 ON CONFLICT(dedupe_key) DO UPDATE SET revision=outbox.revision+1,available_at=0,attempts=0`, j.Key, j.Kind, j.GroupID, j.SessionID, j.UserID, j.ActorID, j.Token)
 	return err
-}
-func (s *Store) enqueueAudience(tx *sql.Tx, kind, group, session string, actor int64, episode string) error {
-	column := "notify_arrival"
-	if kind == "departure" {
-		column = "notify_departure"
-	}
-	rows, err := tx.Query(`SELECT u.id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.group_id=? AND m.banned=0 AND u.bot_started=1 AND u.blocked=0 AND u.`+column+`=1 AND u.id<>?`, group, actor)
-	if err != nil {
-		return err
-	}
-	ids := []int64{}
-	for rows.Next() {
-		var id int64
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		ids = append(ids, id)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return err
-	}
-	for _, id := range ids {
-		if err = enqueue(tx, Job{Key: kind + ":" + episode + ":" + strconv.FormatInt(id, 10), Kind: kind, GroupID: group, SessionID: session, UserID: id, ActorID: actor, Token: episode}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 func (s *Store) refreshCards(tx *sql.Tx, group string) error {
 	rows, err := tx.Query(`SELECT m.session_id,m.user_id FROM session_messages m JOIN sessions s ON s.id=m.session_id WHERE s.group_id=?`, group)
@@ -123,8 +103,8 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 			d.Skip = !valid || d.Revoked
 			return nil
 		}
-		var ended int64
-		err = tx.QueryRow(`SELECT ended_at FROM sessions WHERE id=?`, j.SessionID).Scan(&ended)
+		var startedAt, ended int64
+		err = tx.QueryRow(`SELECT started_at,ended_at FROM sessions WHERE id=?`, j.SessionID).Scan(&startedAt, &ended)
 		if errors.Is(err, sql.ErrNoRows) {
 			d.Skip = true
 			return nil
@@ -133,6 +113,9 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 			return err
 		}
 		d.Closed = ended > 0
+		if d.Closed {
+			d.Duration = ended - startedAt
+		}
 		switch j.Kind {
 		case "card":
 			if err = tx.QueryRow(`SELECT message_id FROM session_messages WHERE session_id=? AND user_id=?`, j.SessionID, j.UserID).Scan(&d.MessageID); err != nil {
@@ -142,31 +125,42 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 				d.Skip = true
 				return nil
 			}
-			if !d.Closed && !d.Revoked {
-				d.Members, err = members(tx, j.GroupID)
-			}
-			return err
-		case "arrival", "departure":
-			if d.Revoked || (j.Kind == "arrival" && (!p.Arrival || d.Closed)) || (j.Kind == "departure" && !p.Departure) {
-				d.Skip = true
+			if d.Revoked {
 				return nil
 			}
-			if j.Kind == "arrival" {
-				var valid bool
-				if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM smoker_statuses WHERE user_id=? AND episode_id=? AND status='smoking')`, j.ActorID, j.Token).Scan(&valid); err != nil {
+			if !d.Closed {
+				if d.Members, err = members(tx, j.GroupID); err != nil {
 					return err
 				}
-				if !valid {
-					d.Skip = true
-					return nil
-				}
 			}
-			return tx.QueryRow(`SELECT first_name FROM users WHERE id=?`, j.ActorID).Scan(&d.ActorName)
+			d.Visits, err = visits(tx, j.SessionID, s.now())
+			return err
+		case "arrival", "departure":
+			// Queued before the session card replaced separate arrival/departure messages.
+			d.Skip = true
+			return nil
 		default:
 			return ErrInvalid
 		}
 	})
 	return d, err
+}
+func visits(tx *sql.Tx, session string, now int64) ([]Visit, error) {
+	rows, err := tx.Query(`SELECT v.user_id,u.first_name,SUM(MAX(CASE WHEN v.ended_at=0 THEN ? ELSE v.ended_at END-v.started_at,0)),MAX(v.ended_at=0)
+	 FROM session_visits v JOIN users u ON u.id=v.user_id WHERE v.session_id=? GROUP BY v.user_id ORDER BY MIN(v.started_at),v.user_id`, now, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Visit{}
+	for rows.Next() {
+		var v Visit
+		if err = rows.Scan(&v.UserID, &v.Name, &v.Seconds, &v.Present); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
 }
 func (s *Store) CompleteJob(ctx context.Context, j Job, messageID int64, delivered bool) error {
 	return s.transaction(ctx, func(tx *sql.Tx) error {

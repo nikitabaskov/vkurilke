@@ -21,6 +21,9 @@ func TestClientSendEditAndRateLimit(t *testing.T) {
 		calls = append(calls, r.URL.Path)
 		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
+		if _, ok := payload["reply_markup"]; ok {
+			t.Fatal("empty keyboard sent instead of omitted")
+		}
 		if _, ok := payload["parse_mode"]; ok {
 			t.Fatal("untrusted names are interpreted as markup")
 		}
@@ -44,10 +47,18 @@ func TestClientSendEditAndRateLimit(t *testing.T) {
 }
 func TestSessionCardsCloseAndCallbacksFitTelegram(t *testing.T) {
 	b := &Bot{BaseURL: "https://smoke.test", AnswerMinutes: 3}
-	d := store.Delivery{Job: store.Job{Kind: "card", SessionID: strings.Repeat("a", 24), GroupID: "room"}, GroupName: "Общага", Members: []store.Member{{User: store.User{FirstName: "Аня"}, Status: "smoking"}, {User: store.User{FirstName: "Никита"}, Status: "going"}}}
+	d := store.Delivery{Job: store.Job{Kind: "card", SessionID: strings.Repeat("a", 24), GroupID: "room"}, GroupName: "Общага", Members: []store.Member{{User: store.User{ID: 1, FirstName: "Аня"}, Status: "smoking"}, {User: store.User{ID: 2, FirstName: "Никита"}, Status: "going"}},
+		Visits: []store.Visit{{UserID: 1, Name: "Аня", Seconds: 90, Present: true}, {UserID: 3, Name: "Дима", Seconds: 420}}}
 	text, k := b.Render(d)
-	if !strings.Contains(text, "Аня — в курилке") || !strings.Contains(text, "Никита — спускается") {
+	if !strings.Contains(text, "Аня — в курилке") || !strings.Contains(text, "Никита — спускается") || !strings.Contains(text, "Уже ушли:\nДима — 7 мин") || strings.Contains(text, "Аня — 1") {
 		t.Fatal(text)
+	}
+	for _, row := range k.Rows {
+		for _, button := range row {
+			if button.WebApp != nil {
+				t.Fatal("open button attached to message")
+			}
+		}
 	}
 	if k.Rows[0][0].CallbackData != "join:"+d.Job.SessionID {
 		t.Fatal("join not tied to session")
@@ -60,8 +71,9 @@ func TestSessionCardsCloseAndCallbacksFitTelegram(t *testing.T) {
 		}
 	}
 	d.Closed = true
+	d.Duration = 3900
 	text, k = b.Render(d)
-	if !strings.Contains(text, "Сеанс завершен") {
+	if !strings.Contains(text, "Сеанс завершен") || !strings.Contains(text, "Длился 1 ч 5 мин") || !strings.Contains(text, "Кто был:\nАня — 1 мин\nДима — 7 мин") || strings.Contains(text, "спускается") {
 		t.Fatal(text)
 	}
 	for _, row := range k.Rows {

@@ -24,7 +24,7 @@
 | `GET /api/status?group_id=...` | Список участников, собственный активный статус, серверное время |
 | `POST /api/status/change` | `{ "group_id": "...", "status": "going\|smoking\|idle", "duration_minutes": 5 }` |
 | `POST /api/status/confirm` | `{ "token": "...", "here": true }` |
-| `PUT /api/settings/notifications` | Все три поля: `{ "session": true, "arrival": true, "departure": false }` |
+| `PUT /api/settings/notifications` | Все три поля: `{ "session": true, "arrival": true, "departure": false }`. `arrival` и `departure` сохраняются, но не используются: приходы и уходы видны в карточке сеанса |
 | `POST /api/settings/toggle-notifications` | Переключить социальные уведомления |
 
 `going` принимает длительности 3, 5 или 10 минут; кнопка бота всегда выбирает 5. Mini App корректирует часы по `server_time`. Данные комнаты доступны только ее участникам; чтение списка не меняет активную комнату пользователя.
@@ -49,4 +49,4 @@
 | `/start` | Регистрация и кнопка Mini App |
 | `/start <код>` или просто код | Вступление по приглашению |
 | `/id` | Ваш числовой Telegram User ID |
-| `/toggle_notify` | Выключить социальные уведомления / включить начало сеанса и приход |
+| `/toggle_notify` | Выключить или включить карточки сеансов |

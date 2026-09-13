@@ -137,8 +137,16 @@ func (s *Store) change(tx *sql.Tx, user int64, group, status string, duration in
 		if _, err = tx.Exec(`INSERT INTO session_messages(session_id,user_id) SELECT ?,u.id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.group_id=? AND m.banned=0 AND u.bot_started=1 AND u.blocked=0 AND u.notify_session=1 AND u.id<>?`, session, group, user); err != nil {
 			return err
 		}
-	} else if status == "smoking" && session != "" {
-		if err = s.enqueueAudience(tx, "arrival", group, session, user, episode); err != nil {
+	}
+	if status == "smoking" {
+		if _, err = tx.Exec(`INSERT INTO session_visits(episode_id,session_id,user_id,started_at) VALUES(?,?,?,?)`, episode, session, user, now); err != nil {
+			return err
+		}
+	}
+	if session != "" {
+		// Starting a session is not news for its founder; their card appears once someone else joins.
+		if _, err = tx.Exec(`INSERT OR IGNORE INTO session_messages(session_id,user_id) SELECT s.id,s.founder_id FROM sessions s JOIN users u ON u.id=s.founder_id
+		 WHERE s.id=? AND u.bot_started=1 AND u.blocked=0 AND u.notify_session=1 AND EXISTS(SELECT 1 FROM smoker_statuses st WHERE st.group_id=s.group_id AND st.user_id<>s.founder_id)`, session); err != nil {
 			return err
 		}
 	}
@@ -156,15 +164,8 @@ func (s *Store) leaveStatus(tx *sql.Tx, user int64, group string, now int64) err
 	if _, err = tx.Exec(`DELETE FROM smoker_statuses WHERE user_id=? AND group_id=?`, user, group); err != nil {
 		return err
 	}
-	var session string
-	err = tx.QueryRow(`SELECT id FROM sessions WHERE group_id=? AND ended_at=0`, group).Scan(&session)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if _, err = tx.Exec(`UPDATE session_visits SET ended_at=? WHERE episode_id=? AND ended_at=0`, now, episode); err != nil {
 		return err
-	}
-	if session != "" {
-		if err = s.enqueueAudience(tx, "departure", group, session, user, episode); err != nil {
-			return err
-		}
 	}
 	if _, err = tx.Exec(`UPDATE sessions SET ended_at=? WHERE group_id=? AND ended_at=0 AND NOT EXISTS(SELECT 1 FROM smoker_statuses WHERE group_id=?)`, now, group, group); err != nil {
 		return err

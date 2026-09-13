@@ -102,6 +102,11 @@ func Open(path string, opts Options) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// Sessions that were active before visits were recorded still list their current smokers.
+	if _, err = db.Exec(`INSERT OR IGNORE INTO session_visits(episode_id,session_id,user_id,started_at) SELECT st.episode_id,s.id,st.user_id,st.started_at FROM smoker_statuses st JOIN sessions s ON s.group_id=st.group_id AND s.ended_at=0 WHERE st.status='smoking'`); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db, opts: opts}, nil
 }
 func (s *Store) Close() error                   { return s.db.Close() }
@@ -195,7 +200,7 @@ func (s *Store) ToggleNotificationsForUpdate(ctx context.Context, id, updateID i
 			}
 		}
 		var enabled bool
-		if err := tx.QueryRow(`SELECT notify_session OR notify_arrival OR notify_departure FROM users WHERE id=?`, id).Scan(&enabled); err != nil {
+		if err := tx.QueryRow(`SELECT notify_session FROM users WHERE id=?`, id).Scan(&enabled); err != nil {
 			return err
 		}
 		p = Preferences{Session: !enabled, Arrival: !enabled}
