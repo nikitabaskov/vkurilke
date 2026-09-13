@@ -59,6 +59,7 @@ How a request flows. HTTP or a bot callback calls a `store` method. That method 
 - All UI text, bot messages, and `store.Err*` messages are in **Russian** and use the informal «ты».
 - Tests sit next to the code, e.g. `internal/store/store_test.go` (the `setup(t)` fixture gives users 1–4 and a room «Общага»), `internal/api/server_test.go` (`signedData` fakes initData), and `internal/bot`/`internal/worker` tests (stub `http.RoundTripper`). New behavior needs a test.
 - Commits follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). The default branch is `master`.
+- Put each independent fix in its own commit, including fixes completed in the same working session.
 - Out of scope unless an issue agrees first: Redis, a separate Node server, CGO, horizontal scaling.
 
 ## Deployment

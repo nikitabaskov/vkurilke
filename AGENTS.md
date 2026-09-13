@@ -32,7 +32,7 @@ Use Go's `testing` package with `TestBehavior` names. Cover new behavior; no num
 
 ## Commit & Pull Request Guidelines
 
-History follows Conventional Commits, including `feat:`, `fix:`, `build:`, and `docs:`. Keep each PR focused; use the PR template to explain what, why, and verification. Run `make check`; CI also builds the binary and Docker image. Discuss product changes in an issue and update `docs/DECISIONS.md`.
+History follows Conventional Commits, including `feat:`, `fix:`, `build:`, and `docs:`. Put each independent fix in its own commit, including fixes completed in the same working session. Keep each PR focused; use the PR template to explain what, why, and verification. Run `make check`; CI also builds the binary and Docker image. Discuss product changes in an issue and update `docs/DECISIONS.md`.
 
 ## Configuration & Agent Instructions
 
