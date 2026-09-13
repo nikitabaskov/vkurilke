@@ -181,7 +181,12 @@ dialog::backdrop { background: #060c08a6; backdrop-filter: blur(5px); }
 .statistics-leaderboard { list-style: none; padding: 0; }
 .statistics-leaderboard li { display: flex; align-items: center; gap: 12px; padding: 14px 10px; border-bottom: 1px solid var(--line); }
 .statistics-leaderboard .is-you { background: var(--accent-soft); border-radius: 12px; }
-.statistics-rank { min-width: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.statistics-rank { min-width: 24px; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; }
+.statistics-rank.trophy { display: inline-flex; justify-content: center; }
+.statistics-rank.trophy svg { width: 24px; height: 24px; }
+.statistics-rank.gold { color: #d6a313; }
+.statistics-rank.silver { color: #9ca3af; }
+.statistics-rank.bronze { color: #b76e3b; }
 .field-label { font-size: 12px; font-weight: 600; display: block; margin: 22px 0 10px; }
 .input { display: block; width: 100%; min-width: 0; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 16px; }
 .input::placeholder { color: var(--muted); }

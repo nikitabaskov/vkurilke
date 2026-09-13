@@ -9,6 +9,7 @@ const icons = {
   smoke: '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M10 39h37v9H10zM47 39h7v9h-7M41 39v9" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path class="smoke-trail" d="M45 30c-9-8 7-9 0-18M54 30c-7-6 6-8 1-14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m9 3-.5 2-2 1-2-.5-2 3 1.5 1.5v3L2.5 15l2 3 2-.5 2 1L9 21h4l.5-2.5 2-1 2 .5 2-3-1.5-2v-3L19.5 8l-2-3-2 .5-2-1L13 3Z"/><circle cx="11" cy="12" r="3"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>',
 };
 let token = '';
 let me: Me | undefined;
@@ -165,9 +166,13 @@ async function refreshStatistics(): Promise<void> {
     const content = sheet.querySelector<HTMLElement>('#statistics-content');
     if (!content) return;
     const metric = (label: string, value: string | number): string => `<div class="statistics-metric"><strong>${value}</strong><span>${label}</span></div>`;
+    const rank = (index: number): string => {
+      const podium = ['gold', 'silver', 'bronze'] as const;
+      return index < podium.length ? `<span class="statistics-rank trophy ${podium[index]}" aria-label="${index + 1} место">${icons.trophy}</span>` : `<span class="statistics-rank">${index + 1}</span>`;
+    };
     content.innerHTML = `<p class="sheet-description">${view.group ? `Комната «${escape(groups.find((g) => g.id === view.group)?.name || '')}»` : 'Твои выходы во всех комнатах'}</p>
       <div class="statistics-grid">${metric('Выходов', data.totals.outings)}${metric(view.group ? 'Время всех участников' : 'Время в курилке', smokingTime(data.totals.seconds))}${view.group ? `${metric('Сеансов', data.sessions)}${metric('Длительность сеансов', smokingTime(data.session_seconds))}` : ''}</div>
-      ${view.group ? `<h3 class="subheading">Лидерборд комнаты</h3><p class="field-help">По числу выходов, затем по времени. Статистика каждого участника за выбранный период.</p><ol class="statistics-leaderboard">${data.leaderboard.map((person, index) => `<li class="${person.user_id === me?.user.id ? 'is-you' : ''}"><span class="statistics-rank">${index + 1}</span><div class="member-info"><strong>${escape(person.name)}${person.user_id === me?.user.id ? '<span class="you">ты</span>' : ''}</strong><small>${person.outings} выходов · ${smokingTime(person.seconds)}</small></div></li>`).join('')}</ol><p class="field-help">Итоги комнаты включают прошлые выходы ушедших участников. В лидерборде — текущий состав.</p>` : ''}
+      ${view.group ? `<h3 class="subheading">Лидерборд комнаты</h3><p class="field-help">По числу выходов, затем по времени. Статистика каждого участника за выбранный период.</p><ol class="statistics-leaderboard">${data.leaderboard.map((person, index) => `<li class="${person.user_id === me?.user.id ? 'is-you' : ''}">${rank(index)}<div class="member-info"><strong>${escape(person.name)}${person.user_id === me?.user.id ? '<span class="you">ты</span>' : ''}</strong><small>${person.outings} выходов · ${smokingTime(person.seconds)}</small></div></li>`).join('')}</ol><p class="field-help">Итоги комнаты включают прошлые выходы ушедших участников. В лидерборде — текущий состав.</p>` : ''}
       ${data.totals.outings === 0 && data.totals.seconds === 0 ? '<p class="note">За этот период выходов пока нет.</p>' : ''}`;
   } catch (error) {
     if (statisticsView !== view || sequence !== statisticsSequence || !sheet.open) return;
