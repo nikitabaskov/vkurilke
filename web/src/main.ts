@@ -141,7 +141,7 @@ function showRooms(): void {
 }
 function showSettings(): void {
   if (!me) return;
-  const options: [keyof Preferences, string, string][] = [['session', 'Карточка сеанса', 'Одно сообщение на сеанс: кто пришел и сколько просидел']];
+  const options: [keyof Preferences, string, string][] = [['session', 'Карточка сеанса', 'Когда выходят без тебя. В свой сеанс карточка приходит всегда']];
   openSheet('Без лишнего шума', `<p class="sheet-description">Выбери, о чем писать тебе в личку.</p><div class="settings-list">${options.map(([key, title, description]) => `<label class="setting"><span><strong>${title}</strong><small>${description}</small></span><input type="checkbox" data-preference="${key}" role="switch" ${me!.preferences[key] ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`).join('')}</div><div class="note">🚬 Проверка «Все еще в курилке?» приходит через ${meta.check_minutes} мин. На ответ — ${meta.answer_minutes} мин. Она нужна, чтобы статус оставался актуальным.</div><div class="profile"><span class="profile-initial">${escape(Array.from(me.user.first_name)[0] || '?')}</span><div><strong>${escape(me.user.first_name)}</strong><small>Telegram ID: ${me.user.id}</small></div></div>${room() ? '<button class="secondary full" data-action="room-settings">Настройки комнаты →</button>' : ''}`);
 }
 function showRoomSettings(): void {

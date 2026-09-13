@@ -48,6 +48,7 @@ func TestDeliveryRetriesAndThenEditsExistingCard(t *testing.T) {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 	})
 	w := &Worker{Store: s, Bot: &bot.Bot{Store: s, Client: bot.NewClient("test"), BaseURL: "https://smoke.test", AnswerMinutes: 3}}
+	check(s.SetPreferences(ctx, 2, store.Preferences{}))
 	check(s.ChangeStatus(ctx, 1, g.ID, "smoking", 0))
 	check(w.DeliverOne(ctx))
 	j, err := s.NextJob(ctx)
@@ -64,7 +65,7 @@ func TestDeliveryRetriesAndThenEditsExistingCard(t *testing.T) {
 	now = now.Add(2 * time.Second)
 	check(w.DeliverOne(ctx))
 	check(w.DeliverOne(ctx))
-	// The joiner's card is edited; the founder gets a first card now that someone joined.
+	// The founder's card is edited; the joiner gets a first card of their own.
 	if len(paths) != 4 || strings.Count(strings.Join(paths[2:], " "), "editMessageText") != 1 {
 		t.Fatalf("card was duplicated instead of edited: %v", paths)
 	}

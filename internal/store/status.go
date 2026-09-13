@@ -144,9 +144,8 @@ func (s *Store) change(tx *sql.Tx, user int64, group, status string, duration in
 		}
 	}
 	if session != "" {
-		// Starting a session is not news for its founder; their card appears once someone else joins.
-		if _, err = tx.Exec(`INSERT OR IGNORE INTO session_messages(session_id,user_id) SELECT s.id,s.founder_id FROM sessions s JOIN users u ON u.id=s.founder_id
-		 WHERE s.id=? AND u.bot_started=1 AND u.blocked=0 AND u.notify_session=1 AND EXISTS(SELECT 1 FROM smoker_statuses st WHERE st.group_id=s.group_id AND st.user_id<>s.founder_id)`, session); err != nil {
+		// Participants, the founder included, always get their session's card.
+		if _, err = tx.Exec(`INSERT OR IGNORE INTO session_messages(session_id,user_id) VALUES(?,?)`, session, user); err != nil {
 			return err
 		}
 	}

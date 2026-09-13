@@ -121,6 +121,12 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 			if err = tx.QueryRow(`SELECT message_id FROM session_messages WHERE session_id=? AND user_id=?`, j.SessionID, j.UserID).Scan(&d.MessageID); err != nil {
 				return err
 			}
+			if d.MessageID == 0 && !p.Session && !d.Closed && !d.Revoked {
+				// The setting only covers sessions the person has not joined.
+				if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM smoker_statuses WHERE user_id=? AND group_id=?) OR EXISTS(SELECT 1 FROM session_visits WHERE session_id=? AND user_id=?)`, j.UserID, j.GroupID, j.SessionID, j.UserID).Scan(&p.Session); err != nil {
+					return err
+				}
+			}
 			if d.MessageID == 0 && (!p.Session || d.Closed || d.Revoked) {
 				d.Skip = true
 				return nil

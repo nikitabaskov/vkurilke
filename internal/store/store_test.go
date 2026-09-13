@@ -269,7 +269,7 @@ func TestOutboxRevisionAndPreferenceChecks(t *testing.T) {
 	must(t, f.s.ChangeStatus(ctx, 1, f.group.ID, "smoking", 0))
 	var count int
 	must(t, f.s.db.QueryRow(`SELECT COUNT(*) FROM outbox WHERE kind='card'`).Scan(&count))
-	if count != 1 {
+	if count != 2 {
 		t.Fatalf("wrong card audience: %d", count)
 	}
 	j := f.job(t, "card", 3)
@@ -284,11 +284,10 @@ func TestOutboxRevisionAndPreferenceChecks(t *testing.T) {
 	if d.MessageID != 300 {
 		t.Fatal("retry would create another card")
 	}
-	must(t, f.s.SetPreferences(ctx, 1, Preferences{}))
-	d, err = f.s.Prepare(ctx, f.job(t, "card", 1))
+	d, err = f.s.Prepare(ctx, f.job(t, "card", 2))
 	must(t, err)
-	if !d.Skip {
-		t.Fatal("unsent card ignored changed preferences")
+	if d.Skip {
+		t.Fatal("participant with cards disabled did not get own session card")
 	}
 	must(t, f.s.ManageMember(ctx, 1, f.group.ID, 3, "remove"))
 	d, err = f.s.Prepare(ctx, latest)
