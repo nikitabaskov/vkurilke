@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,6 +41,24 @@ type Store struct {
 	opts Options
 }
 
+// checkWritable turns a permission problem into a readable message: the SQLite
+// driver reports a file it cannot create or open as "out of memory (14)", which
+// sends people looking for a memory limit instead of the data directory owner.
+func checkWritable(path string) error {
+	if f, err := os.OpenFile(path, os.O_RDWR, 0600); err == nil {
+		f.Close()
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("database file %s is not writable: %w", path, err)
+	}
+	// SQLite also writes journal, WAL and SHM files next to the database.
+	dir := filepath.Dir(path)
+	probe, err := os.CreateTemp(dir, ".vkurilke-write-*")
+	if err != nil {
+		return fmt.Errorf("database directory %s is not writable: %w", dir, err)
+	}
+	probe.Close()
+	return os.Remove(probe.Name())
+}
 func Open(path string, opts Options) (*Store, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
@@ -55,6 +74,9 @@ func Open(path string, opts Options) (*Store, error) {
 		opts.AnswerTimeout = 3 * time.Minute
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	if err := checkWritable(path); err != nil {
 		return nil, err
 	}
 	uri := url.URL{Scheme: "file", Path: path}

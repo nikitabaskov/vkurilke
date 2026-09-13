@@ -1,6 +1,11 @@
 package store
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestReplayedNotificationCommandIsIdempotent(t *testing.T) {
 	f := setup(t)
@@ -30,5 +35,19 @@ func TestNewerDatabaseSchemaIsNotDowngraded(t *testing.T) {
 	if err == nil {
 		other.Close()
 		t.Fatal("opened a newer database schema")
+	}
+}
+
+func TestOpenReportsUnwritableDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	if err := os.Mkdir(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Open(filepath.Join(dir, "vkurilke.db"), Options{})
+	if err == nil {
+		t.Fatal("expected an error for a read-only data directory")
+	}
+	if !strings.Contains(err.Error(), "is not writable") || !strings.Contains(err.Error(), dir) {
+		t.Fatalf("error should name the directory and the cause: %v", err)
 	}
 }

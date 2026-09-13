@@ -2,6 +2,9 @@ services:
   app:
     build: .
     restart: unless-stopped
+    # The image drops privileges itself when started as root; Compose keeps all
+    # capabilities dropped, so run as the unprivileged user from the start.
+    user: "10001:10001"
     env_file: .env
     environment:
       PORT: "8080"
