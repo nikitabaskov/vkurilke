@@ -166,10 +166,14 @@ func (s *Store) leaveStatus(tx *sql.Tx, user int64, group string, now int64) err
 	if _, err = tx.Exec(`UPDATE session_visits SET ended_at=? WHERE episode_id=? AND ended_at=0`, now, episode); err != nil {
 		return err
 	}
+	// Queue the current card before closing; delivery reads its final state.
+	if err = s.refreshCards(tx, group); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(`UPDATE sessions SET ended_at=? WHERE group_id=? AND ended_at=0 AND NOT EXISTS(SELECT 1 FROM smoker_statuses WHERE group_id=?)`, now, group, group); err != nil {
 		return err
 	}
-	return s.refreshCards(tx, group)
+	return nil
 }
 
 func (s *Store) JoinSession(ctx context.Context, user int64, session string) error {
@@ -263,6 +267,6 @@ func (s *Store) tick(tx *sql.Tx, now int64) error {
 	if _, err = tx.Exec(`DELETE FROM auth_sessions WHERE expires_at<=?`, now); err != nil {
 		return err
 	}
-	_, err = tx.Exec(`DELETE FROM sessions WHERE ended_at>0 AND NOT EXISTS(SELECT 1 FROM outbox WHERE outbox.session_id=sessions.id)`)
-	return err
+	// Completed sessions and visits are the durable source for statistics and ratings.
+	return nil
 }

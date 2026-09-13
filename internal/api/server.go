@@ -64,6 +64,14 @@ func (s *Server) Handler(static http.Handler) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me", s.me)
+			r.Get("/me/statistics", func(w http.ResponseWriter, r *http.Request) {
+				stats, err := s.Store.Statistics(r.Context(), userID(r), "", r.URL.Query().Get("period"))
+				respond(w, stats, err)
+			})
+			r.Get("/groups/{group}/statistics", func(w http.ResponseWriter, r *http.Request) {
+				stats, err := s.Store.Statistics(r.Context(), userID(r), chi.URLParam(r, "group"), r.URL.Query().Get("period"))
+				respond(w, stats, err)
+			})
 			r.Get("/groups", func(w http.ResponseWriter, r *http.Request) {
 				g, err := s.Store.Groups(r.Context(), userID(r))
 				respond(w, g, err)

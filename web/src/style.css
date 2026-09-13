@@ -170,6 +170,18 @@ dialog::backdrop { background: #060c08a6; backdrop-filter: blur(5px); }
 .room-option small { display: block; color: var(--muted); font-size: 10px; margin-top: 6px; }
 .room-option > span:last-child { color: var(--accent); }
 .room-list { margin: 16px 0 24px; }
+.statistics-tabs, .statistics-periods { display: flex; gap: 6px; margin: 16px 0; }
+.statistics-tabs > button, .statistics-periods > button { flex: 1; padding: 10px 6px; }
+.statistics-periods > button { font-size: 11px; }
+.statistics-tabs .selected, .statistics-periods .selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.statistics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.statistics-metric { display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.statistics-metric strong { font-size: 22px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.statistics-metric span { color: var(--muted); font-size: 11px; }
+.statistics-leaderboard { list-style: none; padding: 0; }
+.statistics-leaderboard li { display: flex; align-items: center; gap: 12px; padding: 14px 10px; border-bottom: 1px solid var(--line); }
+.statistics-leaderboard .is-you { background: var(--accent-soft); border-radius: 12px; }
+.statistics-rank { min-width: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .field-label { font-size: 12px; font-weight: 600; display: block; margin: 22px 0 10px; }
 .input { display: block; width: 100%; min-width: 0; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 16px; }
 .input::placeholder { color: var(--muted); }

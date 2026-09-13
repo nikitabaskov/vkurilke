@@ -32,7 +32,7 @@ cmd/app/main.go      wiring: config → store → bot.Setup → HTTP server + 3 
 internal/config/     env parsing and validation
 internal/api/        chi router, initData HMAC auth (auth.go), REST handlers, error → HTTP status mapping
 internal/store/      all SQLite access and business rules: roles, statuses, sessions, outbox
-  schema.sql         embedded, idempotent CREATE IF NOT EXISTS, PRAGMA user_version=1
+  schema.sql         embedded, idempotent CREATE IF NOT EXISTS, PRAGMA user_version=2
 internal/bot/        Telegram Bot API client, long polling, commands/callbacks, message rendering
 internal/worker/     RunTimers (Store.Tick every 10s), RunDelivery (outbox → Telegram, retries/backoff)
 web/                 strict TypeScript without a framework, Tailwind v4, Vite; embed.go serves dist/

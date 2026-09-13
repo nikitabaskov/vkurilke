@@ -28,7 +28,7 @@ func TestReplayedNotificationCommandIsIdempotent(t *testing.T) {
 
 func TestNewerDatabaseSchemaIsNotDowngraded(t *testing.T) {
 	f := setup(t)
-	_, err := f.s.db.Exec(`PRAGMA user_version=2`)
+	_, err := f.s.db.Exec(`PRAGMA user_version=3`)
 	must(t, err)
 	must(t, f.s.Close())
 	other, err := Open(f.path, Options{})

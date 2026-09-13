@@ -46,6 +46,14 @@ CREATE TABLE IF NOT EXISTS session_visits (
  user_id INTEGER NOT NULL REFERENCES users(id), started_at INTEGER NOT NULL, ended_at INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS visits_by_session ON session_visits(session_id);
+CREATE INDEX IF NOT EXISTS visits_by_user_time ON session_visits(user_id,started_at);
+CREATE INDEX IF NOT EXISTS sessions_by_group_time ON sessions(group_id,started_at);
+CREATE TABLE IF NOT EXISTS session_ratings (
+ session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+ user_id INTEGER NOT NULL REFERENCES users(id),
+ value INTEGER NOT NULL CHECK(value IN (-1,1)),
+ PRIMARY KEY(session_id,user_id)
+);
 CREATE TABLE IF NOT EXISTS outbox (
  id INTEGER PRIMARY KEY AUTOINCREMENT, dedupe_key TEXT NOT NULL UNIQUE,
  kind TEXT NOT NULL, group_id TEXT NOT NULL, session_id TEXT NOT NULL DEFAULT '',
@@ -55,4 +63,4 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 CREATE INDEX IF NOT EXISTS outbox_due ON outbox(available_at,id);
 CREATE TABLE IF NOT EXISTS bot_state (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
-PRAGMA user_version=1;
+PRAGMA user_version=2;

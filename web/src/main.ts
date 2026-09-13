@@ -1,5 +1,5 @@
 import './style.css';
-import type { Group, Me, Member, Meta, Preferences, Snapshot } from './types';
+import type { Group, Me, Member, Meta, Preferences, Snapshot, Statistics, StatisticsPeriod } from './types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const sheet = document.querySelector<HTMLDialogElement>('#sheet')!;
@@ -26,6 +26,8 @@ let pollTimer: ReturnType<typeof setTimeout>;
 let toastTimer: ReturnType<typeof setTimeout>;
 let lastFingerprint = '';
 let failures = 0;
+let statisticsView: { group: string; period: StatisticsPeriod } | undefined;
+let statisticsSequence = 0;
 
 function escape(value: string | number): string {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -122,7 +124,7 @@ function render(): void {
     <section class="people"><div class="section-heading"><h2>Наша компания <span>${members.length}</span></h2><span class="live-count">${smoking > 0 ? `${smoking} на месте` : going > 0 ? `${going} в пути` : 'Все дома'}</span></div>
       ${!snapshot ? '<div class="empty-state">Обновляем список…</div>' : smoking + going === 0 ? '<div class="empty-state"><span>🌿</span><div><strong>На лавочке пока тихо</strong><p>Будь первым — компания подтянется.</p></div></div>' : ''}
       <ul class="member-list">${members.map(memberRow).join('')}</ul>
-    </section><footer><span class="footer-dot"></span> Свои рядом. Без лишних сообщений.</footer>
+    </section><button class="secondary full" data-action="statistics-room">Статистика и лидерборд →</button><footer><span class="footer-dot"></span> Свои рядом. Без лишних сообщений.</footer>
   </main>`;
   updateTimers();
 }
@@ -132,6 +134,8 @@ function updateTimers(): void {
 }
 
 function openSheet(title: string, body: string): void {
+  statisticsView = undefined;
+  statisticsSequence++;
   if (sheet.contains(toastElement)) document.body.append(toastElement);
   sheet.innerHTML = `<div class="sheet-handle"></div><div class="sheet-heading"><h2 id="sheet-title">${escape(title)}</h2><button class="icon-button close" data-action="close" aria-label="Закрыть">×</button></div>${body}`;
   if (!sheet.open) sheet.showModal();
@@ -139,10 +143,42 @@ function openSheet(title: string, body: string): void {
 function showRooms(): void {
   openSheet('Твои комнаты', `<div class="room-list">${groups.map((g) => `<button class="room-option ${g.id === selected ? 'selected' : ''}" data-action="select-room" data-id="${g.id}"><span class="room-symbol">⌂</span><span>${escape(g.name)}<small>${({ owner: 'Владелец', admin: 'Администратор', member: 'Участник' })[g.role]}</small></span><span>${g.id === selected ? '✓' : '↗'}</span></button>`).join('')}</div><button class="secondary full" data-action="join">＋ Вступить по приглашению</button>${me?.is_admin ? '<button class="primary full" data-action="create">Создать комнату</button>' : ''}${room() ? '<button class="text-button full spaced" data-action="room-settings">Управление текущей комнатой →</button>' : ''}`);
 }
+function smokingTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  return `${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
+}
+function showStatistics(group: string, period: StatisticsPeriod = 'today'): void {
+  openSheet('Статистика', `<div class="statistics-tabs"><button class="secondary ${!group ? 'selected' : ''}" data-action="statistics-me" aria-pressed="${!group}">Моя</button>${room() ? `<button class="secondary ${group ? 'selected' : ''}" data-action="statistics-room" aria-pressed="${!!group}">Комната</button>` : ''}</div>
+    <div class="statistics-periods" aria-label="Период статистики">${([['today', 'Сегодня'], ['week', '7 дней'], ['month', '30 дней'], ['all', 'Всё время']] as const).map(([key, label]) => `<button class="secondary ${period === key ? 'selected' : ''}" data-action="statistics-period" data-period="${key}" aria-pressed="${period === key}">${label}</button>`).join('')}</div>
+    <div id="statistics-content" aria-live="polite">Загружаем статистику…</div>
+    <p class="field-help">Сегодня — с 06:00 до 06:00 по Красноярску. 7 и 30 дней — до текущего момента. Выход считается по времени прихода; минуты — только внутри периода, без времени в пути.</p>`);
+  statisticsView = { group, period };
+  void refreshStatistics();
+}
+async function refreshStatistics(): Promise<void> {
+  const view = statisticsView;
+  if (!view || !sheet.open) return;
+  const sequence = ++statisticsSequence;
+  try {
+    const data = await api<Statistics>(`${view.group ? `/groups/${view.group}` : '/me'}/statistics?period=${view.period}`);
+    if (statisticsView !== view || sequence !== statisticsSequence || !sheet.open) return;
+    const content = sheet.querySelector<HTMLElement>('#statistics-content');
+    if (!content) return;
+    const metric = (label: string, value: string | number): string => `<div class="statistics-metric"><strong>${value}</strong><span>${label}</span></div>`;
+    content.innerHTML = `<p class="sheet-description">${view.group ? `Комната «${escape(groups.find((g) => g.id === view.group)?.name || '')}»` : 'Твои выходы во всех комнатах'}</p>
+      <div class="statistics-grid">${metric('Выходов', data.totals.outings)}${metric(view.group ? 'Время всех участников' : 'Время в курилке', smokingTime(data.totals.seconds))}${view.group ? `${metric('Сеансов', data.sessions)}${metric('Длительность сеансов', smokingTime(data.session_seconds))}` : ''}</div>
+      ${view.group ? `<h3 class="subheading">Лидерборд комнаты</h3><p class="field-help">По числу выходов, затем по времени. Статистика каждого участника за выбранный период.</p><ol class="statistics-leaderboard">${data.leaderboard.map((person, index) => `<li class="${person.user_id === me?.user.id ? 'is-you' : ''}"><span class="statistics-rank">${index + 1}</span><div class="member-info"><strong>${escape(person.name)}${person.user_id === me?.user.id ? '<span class="you">ты</span>' : ''}</strong><small>${person.outings} выходов · ${smokingTime(person.seconds)}</small></div></li>`).join('')}</ol><p class="field-help">Итоги комнаты включают прошлые выходы ушедших участников. В лидерборде — текущий состав.</p>` : ''}
+      ${data.totals.outings === 0 && data.totals.seconds === 0 ? '<p class="note">За этот период выходов пока нет.</p>' : ''}`;
+  } catch (error) {
+    if (statisticsView !== view || sequence !== statisticsSequence || !sheet.open) return;
+    const content = sheet.querySelector<HTMLElement>('#statistics-content');
+    if (content) content.innerHTML = `<p class="note">${escape(errorMessage(error))}</p><button class="secondary full" data-action="statistics-retry">Попробовать снова</button>`;
+  }
+}
 function showSettings(): void {
   if (!me) return;
   const options: [keyof Preferences, string, string][] = [['session', 'Карточка сеанса', 'Когда выходят без тебя. В свой сеанс карточка приходит всегда']];
-  openSheet('Без лишнего шума', `<p class="sheet-description">Выбери, о чем писать тебе в личку.</p><div class="settings-list">${options.map(([key, title, description]) => `<label class="setting"><span><strong>${title}</strong><small>${description}</small></span><input type="checkbox" data-preference="${key}" role="switch" ${me!.preferences[key] ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`).join('')}</div><div class="note">🚬 Проверка «Все еще в курилке?» приходит через ${meta.check_minutes} мин. На ответ — ${meta.answer_minutes} мин. Она нужна, чтобы статус оставался актуальным.</div><div class="profile"><span class="profile-initial">${escape(Array.from(me.user.first_name)[0] || '?')}</span><div><strong>${escape(me.user.first_name)}</strong><small>Telegram ID: ${me.user.id}</small></div></div>${room() ? '<button class="secondary full" data-action="room-settings">Настройки комнаты →</button>' : ''}`);
+  openSheet('Без лишнего шума', `<p class="sheet-description">Выбери, о чем писать тебе в личку.</p><div class="settings-list">${options.map(([key, title, description]) => `<label class="setting"><span><strong>${title}</strong><small>${description}</small></span><input type="checkbox" data-preference="${key}" role="switch" ${me!.preferences[key] ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`).join('')}</div><div class="note">🚬 Проверка «Все еще в курилке?» приходит через ${meta.check_minutes} мин. На ответ — ${meta.answer_minutes} мин. Она нужна, чтобы статус оставался актуальным.</div><div class="profile"><span class="profile-initial">${escape(Array.from(me.user.first_name)[0] || '?')}</span><div><strong>${escape(me.user.first_name)}</strong><small>Telegram ID: ${me.user.id}</small></div></div><button class="secondary full" data-action="statistics-me">Моя статистика →</button>${room() ? '<button class="secondary full" data-action="room-settings">Настройки комнаты →</button>' : ''}`);
 }
 function showRoomSettings(): void {
   const g = room(); if (!g) return;
@@ -192,6 +228,7 @@ function schedulePoll(): void {
         await refreshGroups();
         if (JSON.stringify(groups) !== previous) render();
         await refreshStatus();
+        await refreshStatistics();
       } catch { offline = true; failures++; render(); }
     }
     schedulePoll();
@@ -212,6 +249,14 @@ document.addEventListener('click', (event) => {
   if (action === 'bot') { startBot(); return; }
   if (action === 'close') { sheet.close(); return; }
   if (busy) return;
+  if (action === 'statistics-me') { showStatistics('', statisticsView?.period); return; }
+  if (action === 'statistics-room' && room()) { showStatistics(selected, statisticsView?.period); return; }
+  if (action === 'statistics-period' && statisticsView) {
+    const period = button.dataset.period;
+    if (period === 'today' || period === 'week' || period === 'month' || period === 'all') showStatistics(statisticsView.group, period);
+    return;
+  }
+  if (action === 'statistics-retry') { void refreshStatistics(); return; }
   if (action === 'settings') { showSettings(); return; }
   if (action === 'rooms') { showRooms(); return; }
   if (action === 'join') { joinForm(); return; }
@@ -276,7 +321,7 @@ document.addEventListener('change', (event) => {
   void mutation(async () => { try { me!.preferences = await api<Preferences>('/settings/notifications', 'PUT', preferences); toast('Настройки сохранены'); } finally { input.checked = me!.preferences[key]; } });
 });
 sheet.addEventListener('click', (event) => { if (event.target === sheet) { const rect = sheet.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) sheet.close(); } });
-sheet.addEventListener('close', () => { document.body.append(toastElement); });
+sheet.addEventListener('close', () => { statisticsView = undefined; statisticsSequence++; document.body.append(toastElement); });
 document.addEventListener('error', (event) => { if (event.target instanceof HTMLImageElement) event.target.remove(); }, true);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && token && !busy) void refreshStatus().finally(schedulePoll); });
 window.addEventListener('online', () => { if (token) void refreshStatus().finally(schedulePoll); });

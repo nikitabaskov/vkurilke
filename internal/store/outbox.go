@@ -22,6 +22,10 @@ type Delivery struct {
 	Members               []Member
 	Visits                []Visit
 	Duration              int64
+	StartedAt, EndedAt    int64
+	Likes, Dislikes       int
+	Rating                int
+	CanRate               bool
 }
 
 // Visit is one person's total smoking time within a session.
@@ -38,7 +42,7 @@ func enqueue(tx *sql.Tx, j Job) error {
 	return err
 }
 func (s *Store) refreshCards(tx *sql.Tx, group string) error {
-	rows, err := tx.Query(`SELECT m.session_id,m.user_id FROM session_messages m JOIN sessions s ON s.id=m.session_id WHERE s.group_id=?`, group)
+	rows, err := tx.Query(`SELECT m.session_id,m.user_id FROM session_messages m JOIN sessions s ON s.id=m.session_id WHERE s.group_id=? AND s.ended_at=0`, group)
 	if err != nil {
 		return err
 	}
@@ -113,6 +117,7 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 			return err
 		}
 		d.Closed = ended > 0
+		d.StartedAt, d.EndedAt = startedAt, ended
 		if d.Closed {
 			d.Duration = ended - startedAt
 		}
@@ -140,7 +145,13 @@ func (s *Store) Prepare(ctx context.Context, j Job) (Delivery, error) {
 				}
 			}
 			d.Visits, err = visits(tx, j.SessionID, s.now())
-			return err
+			if err != nil || !d.Closed {
+				return err
+			}
+			if err = tx.QueryRow(`SELECT COUNT(CASE WHEN value=1 THEN 1 END),COUNT(CASE WHEN value=-1 THEN 1 END),COALESCE(MAX(CASE WHEN user_id=? THEN value END),0) FROM session_ratings WHERE session_id=?`, j.UserID, j.SessionID).Scan(&d.Likes, &d.Dislikes, &d.Rating); err != nil {
+				return err
+			}
+			return tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM session_visits WHERE session_id=? AND user_id=?)`, j.SessionID, j.UserID).Scan(&d.CanRate)
 		case "arrival", "departure":
 			// Queued before the session card replaced separate arrival/departure messages.
 			d.Skip = true

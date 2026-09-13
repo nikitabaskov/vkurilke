@@ -126,6 +126,36 @@ func TestHTTPAuthRoomIsolationAndStatusFlow(t *testing.T) {
 	if w.Code != 403 {
 		t.Fatal("accepted foreign origin")
 	}
+	now = now.Add(time.Minute)
+	for _, tc := range []struct {
+		path, auth string
+		code       int
+	}{
+		{"/api/me/statistics?period=all", "", 401},
+		{"/api/groups/" + group.ID + "/statistics?period=all", outsider, 403},
+		{"/api/groups/" + group.ID + "/statistics?period=year", token, 400},
+		{"/api/me/statistics?period=all", token, 200},
+		{"/api/me/statistics?period=all", outsider, 200},
+		{"/api/groups/" + group.ID + "/statistics?period=all", token, 200},
+	} {
+		w = request("GET", tc.path, tc.auth, nil)
+		if w.Code != tc.code {
+			t.Fatalf("%s: got %d, want %d: %s", tc.path, w.Code, tc.code, w.Body)
+		}
+		if tc.code == 200 {
+			var stats store.Statistics
+			if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+				t.Fatal(err)
+			}
+			want := store.SmokingTotals{Outings: 1, Seconds: 60}
+			if tc.auth == outsider {
+				want = store.SmokingTotals{}
+			}
+			if stats.Totals != want {
+				t.Fatalf("wrong statistics or leaked another user's data: %+v", stats)
+			}
+		}
+	}
 	now = now.Add(24 * time.Hour)
 	if w = request("GET", "/api/me", token, nil); w.Code != 401 {
 		t.Fatal("accepted expired app token")

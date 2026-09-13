@@ -117,6 +117,13 @@ func (b *Bot) handle(ctx context.Context, u update) error {
 		case "no":
 			err = b.Store.Confirm(ctx, c.From.ID, parts[1], false)
 			answer = "Отметили, что ты ушел"
+		case "like", "dislike":
+			value := 1
+			if parts[0] == "dislike" {
+				value = -1
+			}
+			err = b.Store.RateSession(ctx, c.From.ID, parts[1], value)
+			answer = "Оценка сохранена. Можешь изменить ее кнопками под сеансом"
 		default:
 			err = store.ErrStale
 		}
@@ -234,9 +241,9 @@ func (b *Bot) Render(d store.Delivery) (string, Keyboard) {
 	if d.Revoked {
 		return "Ты больше не участник комнаты «" + d.GroupName + "».", Keyboard{}
 	}
-	text := "🚬 Сеанс · «" + d.GroupName + "»\n\n"
+	text := "🟢🟢🟢 СЕАНС ИДЁТ 🟢🟢🟢\n🚬 «" + d.GroupName + "»\n" + sessionTime(d.StartedAt, d.EndedAt) + "\n━━━━━━━━━━━━━━━━━━\n\n"
 	if d.Closed {
-		text = "✅ Сеанс завершен · «" + d.GroupName + "»\nДлился " + duration(d.Duration) + "\n\n"
+		text = "Сеанс завершен · «" + d.GroupName + "»\n" + sessionTime(d.StartedAt, d.EndedAt) + "\nДлился " + duration(d.Duration) + "\n\n"
 	}
 	full := false
 	add := func(line string) {
@@ -267,7 +274,7 @@ func (b *Bot) Render(d store.Delivery) (string, Keyboard) {
 	}
 	heading := "\nУже ушли:\n"
 	if d.Closed {
-		heading = "Кто был:\n"
+		heading = fmt.Sprintf("Было %d человек:\n", len(d.Visits))
 	}
 	for _, v := range d.Visits {
 		if present[v.UserID] {
@@ -280,13 +287,35 @@ func (b *Bot) Render(d store.Delivery) (string, Keyboard) {
 		add(v.Name + " — " + duration(v.Seconds) + "\n")
 	}
 	if d.Closed {
-		add("\nДо следующего выхода 👋")
-		return strings.TrimSpace(text), Keyboard{}
+		// Reserve the footer even when the participant list is truncated.
+		text += fmt.Sprintf("\nОценки сеанса: 👍 %d · 👎 %d", d.Likes, d.Dislikes)
+		k := Keyboard{}
+		if d.CanRate {
+			text += "\nКак тебе этот сеанс?"
+			like, dislike := "👍 Понравилось", "👎 Не понравилось"
+			if d.Rating == 1 {
+				like += " ✓"
+			}
+			if d.Rating == -1 {
+				dislike += " ✓"
+			}
+			k.Rows = [][]Button{{{Text: like, CallbackData: "like:" + d.Job.SessionID}, {Text: dislike, CallbackData: "dislike:" + d.Job.SessionID}}}
+		}
+		return strings.TrimSpace(text), k
 	}
 	if len(present) == 0 {
 		add("Все вернулись.\n")
 	}
 	return strings.TrimSpace(text), Keyboard{Rows: [][]Button{{{Text: "🏃 Спускаюсь (+1)", CallbackData: "join:" + d.Job.SessionID}}}}
+}
+func sessionTime(start, end int64) string {
+	format := func(timestamp int64) string {
+		return time.Unix(timestamp, 0).In(store.ReportLocation).Format("02.01.2006 15:04")
+	}
+	if end == 0 {
+		return "С " + format(start) + " — сейчас (Красноярск)"
+	}
+	return "С " + format(start) + " до " + format(end) + " (Красноярск)"
 }
 func duration(seconds int64) string {
 	minutes := seconds / 60
