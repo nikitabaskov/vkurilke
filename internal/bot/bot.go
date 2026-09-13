@@ -313,9 +313,9 @@ func sessionTime(start, end int64) string {
 		return time.Unix(timestamp, 0).In(store.ReportLocation).Format("02.01.2006 15:04")
 	}
 	if end == 0 {
-		return "С " + format(start) + " — сейчас (Красноярск)"
+		return "С " + format(start) + " — сейчас"
 	}
-	return "С " + format(start) + " до " + format(end) + " (Красноярск)"
+	return "С " + format(start) + " до " + format(end)
 }
 func duration(seconds int64) string {
 	minutes := seconds / 60
