@@ -33,6 +33,9 @@ func TestStatisticsPeriodsAndClippedVisits(t *testing.T) {
 		t.Run(tc.period, func(t *testing.T) {
 			stats, err := f.s.Statistics(ctx, 1, f.group.ID, tc.period)
 			must(t, err)
+			if stats.Timezone != "Asia/Novosibirsk" {
+				t.Fatalf("wrong statistics timezone: %q", stats.Timezone)
+			}
 			if stats.Totals != (SmokingTotals{Outings: tc.outings, Seconds: tc.seconds}) || stats.Sessions != tc.outings || stats.SessionSeconds != tc.seconds {
 				t.Fatalf("wrong clipped statistics: %+v", stats)
 			}

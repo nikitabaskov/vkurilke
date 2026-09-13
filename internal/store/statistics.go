@@ -8,7 +8,9 @@ import (
 )
 
 // ReportLocation is shared by bot timestamps and the boundary of "today".
-var ReportLocation = time.FixedZone("Красноярск", 7*60*60)
+const reportTimezone = "Asia/Novosibirsk"
+
+var ReportLocation = time.FixedZone(reportTimezone, 7*60*60)
 
 type SmokingTotals struct {
 	Outings int64 `json:"outings"`
@@ -53,7 +55,7 @@ func statisticsStart(now time.Time, period string) (int64, error) {
 func (s *Store) Statistics(ctx context.Context, user int64, group, period string) (Statistics, error) {
 	now := s.opts.Now()
 	from, err := statisticsStart(now, period)
-	result := Statistics{Period: period, From: from, ServerTime: now.Unix(), Timezone: "Asia/Krasnoyarsk", Leaderboard: []PersonStatistics{}}
+	result := Statistics{Period: period, From: from, ServerTime: now.Unix(), Timezone: reportTimezone, Leaderboard: []PersonStatistics{}}
 	if err != nil {
 		return result, err
 	}

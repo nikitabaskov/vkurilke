@@ -151,7 +151,7 @@ function showStatistics(group: string, period: StatisticsPeriod = 'today'): void
   openSheet('Статистика', `<div class="statistics-tabs"><button class="secondary ${!group ? 'selected' : ''}" data-action="statistics-me" aria-pressed="${!group}">Моя</button>${room() ? `<button class="secondary ${group ? 'selected' : ''}" data-action="statistics-room" aria-pressed="${!!group}">Комната</button>` : ''}</div>
     <div class="statistics-periods" aria-label="Период статистики">${([['today', 'Сегодня'], ['week', '7 дней'], ['month', '30 дней'], ['all', 'Всё время']] as const).map(([key, label]) => `<button class="secondary ${period === key ? 'selected' : ''}" data-action="statistics-period" data-period="${key}" aria-pressed="${period === key}">${label}</button>`).join('')}</div>
     <div id="statistics-content" aria-live="polite">Загружаем статистику…</div>
-    <p class="field-help">Сегодня — с 06:00 до 06:00 по Красноярску. 7 и 30 дней — до текущего момента. Выход считается по времени прихода; минуты — только внутри периода, без времени в пути.</p>`);
+    <p class="field-help">Сегодня — с 06:00 до 06:00 по Новосибирску. 7 и 30 дней — до текущего момента. Выход считается по времени прихода; минуты — только внутри периода, без времени в пути.</p>`);
   statisticsView = { group, period };
   void refreshStatistics();
 }
