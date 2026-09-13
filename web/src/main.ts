@@ -147,7 +147,7 @@ function smokingTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   return `${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
-function showStatistics(group: string, period: StatisticsPeriod = 'today'): void {
+function showStatistics(group: string, period: StatisticsPeriod = 'all'): void {
   openSheet('Статистика', `<div class="statistics-tabs"><button class="secondary ${!group ? 'selected' : ''}" data-action="statistics-me" aria-pressed="${!group}">Моя</button>${room() ? `<button class="secondary ${group ? 'selected' : ''}" data-action="statistics-room" aria-pressed="${!!group}">Комната</button>` : ''}</div>
     <div class="statistics-periods" aria-label="Период статистики">${([['today', 'Сегодня'], ['week', '7 дней'], ['month', '30 дней'], ['all', 'Всё время']] as const).map(([key, label]) => `<button class="secondary ${period === key ? 'selected' : ''}" data-action="statistics-period" data-period="${key}" aria-pressed="${period === key}">${label}</button>`).join('')}</div>
     <div id="statistics-content" aria-live="polite">Загружаем статистику…</div>
